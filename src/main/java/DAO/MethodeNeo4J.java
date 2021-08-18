@@ -31,7 +31,7 @@ public class MethodeNeo4J {
         HashMap<Object,Object> res = new HashMap<>();
         Boolean evolution=false;
         Result result = session.run("Match (n:"+captureName(label.toLowerCase())+")return properties(n) as attributes,id(n) as id," +
-                "n."+label.toLowerCase()+"id as entityid order by n."+label.toLowerCase()+"id limit  "+nb);
+                "n."+label.toLowerCase()+"id as entityid  limit  "+nb); //order by n."+label.toLowerCase()+"id
         ArrayList<Combo> combos=new ArrayList<>();
         ArrayList<Node> nodes=new ArrayList<>();
         while (result.hasNext()) {
@@ -218,10 +218,10 @@ public class MethodeNeo4J {
                     colorEdge="#AAABD3";
                     break;
                 case "view" :
-                    colorEdge="#ABD0CE";
+                    colorEdge="#EEB4B4";
                     break;
                 default :
-                    colorEdge="#8EC0E4";
+                    colorEdge="#CDBE70";
             }
             styleEdge.put("stroke",colorEdge);
             edge.setStyle(styleEdge);
@@ -579,10 +579,10 @@ public class MethodeNeo4J {
                     colorEdge="#AAABD3";
                     break;
                 case "view" :
-                    colorEdge="#ABD0CE";
+                    colorEdge="#EEB4B4";
                     break;
                 default :
-                    colorEdge="#8EC0E4";
+                    colorEdge="#CDBE70";
             }
             styleEdge.put("stroke",colorEdge);
             edge.setStyle(styleEdge);
@@ -623,9 +623,257 @@ public class MethodeNeo4J {
     }
 
 
+//-----------------------------with time----------------------------------------------
+    //http://localhost:8080/kaggle/time/user/time_get?st=2015-07-09 06:00:00 &et=2016-07-10 08:00:00
+    public static HashMap<Object,Object> searchNodeComboWithTime(String label,String st, String et) {
+    Driver driver = ConnexionNeo4J.connectDB();
+    Session session = driver.session();
+    HashMap<Object,Object> res = new HashMap<>();
+    Boolean evolution=false;
+    Result result = session.run("MATCH (n:"+captureName(label.toLowerCase())+") WHERE datetime(n.startvalidtime)< datetime('"+et+"') AND (datetime(n.endvalidtime)>=datetime('"+st+"') OR datetime(n.endvalidtime) IS NULL)" +
+            " return properties(n) as attributes,id(n) as id," +
+            "n."+label.toLowerCase()+"id as entityid limit  "+nb);
+    ArrayList<Combo> combos=new ArrayList<>();
+    ArrayList<Node> nodes=new ArrayList<>();
+    while (result.hasNext()) {
+        Record record = result.next();
+        Combo combo=new Combo();
+        combo.setId(captureName(label.toLowerCase())+record.get("attributes").get(label.toLowerCase()+"id").asString());
+        combo.setLabel(combo.getId());
+        HashMap<Object,Object> styleCombo =new HashMap<>();
+        String colorCombo="#006699";
+        styleCombo.put("fill",colorCombo);
+        styleCombo.put("stroke",colorCombo);
+
+        combo.setStyle(styleCombo);
+        combos.add(combo);
+        Node node=new Node();
+        node.setId(""+record.get("id").asLong());
+        node.setInstanceid(record.get("attributes").get("instanceid").asString());
+        if ((record.get("attributes").get("instanceid").asString() == "null")) {
+            evolution=false;
+            node.setLabel(captureName(label.toLowerCase())+record.get("attributes").get(label.toLowerCase()+"id").asString()); //node.getId()
+            node.setComboId("null");
+
+            //  node.setType("diamond");
+        } else {
+            evolution=true;
+            node.setComboId(captureName(label.toLowerCase())+record.get("attributes").get(label.toLowerCase()+"id").asString());
+            node.setLabel(node.getInstanceid());
+        }
+        node.setStartvalidtime(record.get("attributes").get("startvalidtime").asString());
+        node.setEndvalidtime(record.get("attributes").get("endvalidtime").asString());
+        HashMap<Object,Object> attributes =new HashMap<>();
+        attributes.putAll(record.get("attributes").asMap());
+        HashMap<Object,Object> style =new HashMap<>();
+        String color;
+        String stroke;
+        switch(label.toLowerCase()){
+            case "user" :
+                color="#FF6666";
+                stroke="#FF6666";
+                break;
+            case "item" :
+                color="#FFFFCC";
+                stroke="#FFFFCC";
+                break;
+            default :
+                color="#FFFF00";
+                stroke="#FFFF00";
+
+        }
+        style.put("fill",color);
+        style.put("stroke",stroke);
+
+        node.setStyle(style);
+        node.setAttributes(attributes);
+        nodes.add(node);
+    }
+
+    LinkedHashSet<Combo> set = new LinkedHashSet<>(combos);
+    ArrayList<Combo> listWithoutDuplicateElements = new ArrayList<>(set);
+
+    res.put("nodes",nodes);
+    if (evolution) {
+        res.put("combos", listWithoutDuplicateElements);
+    }
+    System.out.println("ok");
+    session.close();
+    driver.close();
+    return res;
+}
+
+    public static HashMap<Object,Object> searchEdgeComboWithTime(String label,String sourcelabel, String targetlabel,String st, String et) {
+        Driver driver = ConnexionNeo4J.connectDB();
+        Session session = driver.session();
+        Boolean sevolution=false;
+        Boolean tevolution=false;
+        String item=targetlabel.toLowerCase();
+        if(targetlabel.toLowerCase()=="item"){
+            item=targetlabel.toLowerCase();
+        }
+        else if (sourcelabel.toLowerCase()=="item"){
+            item=sourcelabel;
+        }
+        Result result = session.run("match(t:"+captureName(targetlabel.toLowerCase())+")<-[r:"+captureName(label.toLowerCase())+"]-(s:"+captureName(sourcelabel.toLowerCase())+") return r as relation,id(r) as relationid, id(s) as startid,properties(s) as sattributes,id(t) as endid,properties(t) as eattributes,type(r) as type, " +
+                "properties(r) as rattributes order by t."+item+"id limit "+nb);
+        ArrayList<Node> nodes=new ArrayList<>();
+        ArrayList<Edge> edges=new ArrayList<>();
+        ArrayList<Combo> combos=new ArrayList<>();
+        while (result.hasNext()) {
+            Record record = result.next();
+            Node source =new Node();
+            Node target =new Node();
+            Edge edge= new Edge();
+            Combo scombo=new Combo();
+            Combo tcombo=new Combo();
+
+            // node source and node target
+            source.setId(record.get("startid").asLong()+"");
+            source.setInstanceid(record.get("sattributes").get("instanceid").asString());
+            source.setStartvalidtime(record.get("sattributes").get("startvalidtime").asString());
+            source.setEndvalidtime(record.get("sattributes").get("endvalidtime").asString());
+            if ((record.get("sattributes").get("instanceid").asString() == "null")) {
+                sevolution=false;
+                source.setLabel(captureName(sourcelabel.toLowerCase())+record.get("sattributes").get(sourcelabel.toLowerCase()+"id").asString());
+                //  source.setType("diamond");
+            } else {
+                sevolution=true;
+                source.setComboId(sourcelabel+record.get("sattributes").get(sourcelabel.toLowerCase()+"id").asString());
+                source.setLabel(source.getInstanceid());
+            }
+            HashMap<Object,Object> styleSource =new HashMap<>();
+            String colorSource;
+            switch(sourcelabel.toLowerCase()){
+                case "user" :
+                    colorSource="#FF6666";
+                    break;
+                case "item" :
+                    colorSource="#FFFFCC";
+                    break;
+                default :
+                    colorSource="#FFFF00";
+            }
+            styleSource.put("fill",colorSource);
+            styleSource.put("stroke",colorSource);
+            source.setStyle(styleSource);
+
+            HashMap<Object,Object> sattributes=new HashMap<>();
+            sattributes.putAll(record.get("sattributes").asMap());
+            source.setAttributes(sattributes);
+            nodes.add(source);
+
+            target.setId(record.get("endid").asLong()+"");
+            target.setInstanceid(record.get("eattributes").get("instanceid").asString());
+            target.setStartvalidtime(record.get("eattributes").get("startvalidtime").asString());
+            target.setEndvalidtime(record.get("eattributes").get("endvalidtime").asString());
+            if ((record.get("eattributes").get("instanceid").asString() == "null")) {
+                tevolution=false;
+                target.setLabel(captureName(targetlabel.toLowerCase())+record.get("eattributes").get(targetlabel.toLowerCase()+"id").asString());
+                // target.setType("diamond");
+            } else {
+                tevolution=true;
+                target.setLabel(record.get("eattributes").get("instanceid").asString());
+                target.setComboId(targetlabel+record.get("eattributes").get(targetlabel.toLowerCase()+"id").asString());
+
+            }
+            HashMap<Object,Object> styleTarget =new HashMap<>();
+            String colorTarget;
+            switch(targetlabel.toLowerCase()){
+                case "user" :
+                    colorTarget="#FF6666";
+                    break;
+                case "item" :
+                    colorTarget="#FFFFCC";
+                    break;
+                default :
+                    colorTarget="#FFFF00";
+            }
+            styleTarget.put("fill",colorTarget);
+            styleTarget.put("stroke",colorTarget);
+            target.setStyle(styleTarget);
+
+            HashMap<Object,Object> eattributes=new HashMap<>();
+            eattributes.putAll(record.get("eattributes").asMap());
+            target.setAttributes(eattributes);
+            nodes.add(target);
+
+            //edge
+            edge.setId(record.get("relationid").asLong()+"");
+            edge.setSource(source.getId());
+            edge.setTarget(target.getId());
+            edge.setTypeEdge(record.get("type").asString());
+            HashMap<Object,Object> rattributes=new HashMap<>();
+            rattributes.putAll(record.get("rattributes").asMap());
+            edge.setAttributes(rattributes);
+
+            HashMap<Object,Object> styleEdge =new HashMap<>();
+            String colorEdge;
+            switch(label.toLowerCase()){
+                case "addtocart" :
+                    colorEdge="#FFEEE4";
+                    break;
+                case "belongto" :
+                    colorEdge="#CFCFCF";
+                    break;
+                case "subCategory" :
+                    colorEdge="#AAABD3";
+                    break;
+                case "view" :
+                    colorEdge="#EEB4B4";
+                    break;
+                default :
+                    colorEdge="#CDBE70";
+            }
+            styleEdge.put("stroke",colorEdge);
+            edge.setStyle(styleEdge);
+            edges.add(edge);
+            //combo
+            if(sevolution) {
+                scombo.setId(source.getComboId());
+                scombo.setLabel(source.getComboId());
+                HashMap<Object,Object> styleSCombo =new HashMap<>();
+                String colorSCombo="#006699";
+                styleSCombo.put("fill",colorSCombo);
+                styleSCombo.put("stroke",colorSCombo);
+                scombo.setStyle(styleSCombo);
+                combos.add(scombo);
+            }
+            if(tevolution){
+                tcombo.setId(target.getComboId());
+                tcombo.setLabel(target.getComboId());
+                HashMap<Object,Object> styleTCombo =new HashMap<>();
+                String colorTCombo="#006699";
+                styleTCombo.put("fill",colorTCombo);
+                styleTCombo.put("stroke",colorTCombo);
+                tcombo.setStyle(styleTCombo);
+                combos.add(tcombo);}
+        }
+
+        LinkedHashSet<Node> nodeset = new LinkedHashSet<Node>(nodes);
+        ArrayList<Node> nodeNoDupli = new ArrayList<Node>(nodeset);
+        LinkedHashSet<Edge> edgeset = new LinkedHashSet<Edge>(edges);
+        ArrayList<Edge> edgeNoDupli = new ArrayList<Edge>(edgeset);
+        LinkedHashSet<Combo> set = new LinkedHashSet<Combo>(combos);
+        ArrayList<Combo> listWithoutDuplicateElements = new ArrayList<Combo>(set);
+
+
+
+        HashMap<Object,Object> res = new HashMap<>();
+
+
+        res.put("nodes",nodeNoDupli);
+        res.put("edges",edgeNoDupli);
+        res.put("combos",listWithoutDuplicateElements);
+        System.out.println("ok");
+        session.close();
+        driver.close();
+        return res;
+    }
+
 
     public static void main(String[] args) throws Exception {
-
+        searchNodeComboWithTime("user","2015-07-09 06:00:00","2016-07-10 08:00:00");
 
         System.out.println("----------------End--------------");
 

@@ -1,9 +1,16 @@
 package com.example.API;
 
 import Model.*;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 
 import static DAO.MethodeNeo4J.*;
@@ -55,4 +62,38 @@ public class Hellocontroller {
         HashMap<Object,Object> cu = searchEdgeById(label,sourceLabel,targetLabel,sourceId,targetId);
         return cu;
     }
+
+
+
+    // ---------------------with time----------------------------
+
+    @RequestMapping(value = "/time/{label}/time_get", method = RequestMethod.GET)
+    @CrossOrigin(origins = "http://localhost:3000")
+    @ResponseBody
+    public HashMap<Object,Object> getCombodataBytime(@PathVariable("label") String label, @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") Date st, @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") Date et) {
+
+        String pattern = "yyyy-MM-dd HH:mm:ss";
+
+        DateFormat df = new SimpleDateFormat(pattern);
+        String strSt = df.format(st);
+        String strEt = df.format(et);
+
+        StringBuilder sb_st=new StringBuilder(strSt);
+        sb_st.replace(10, 11, "T");
+        String stFin=sb_st.toString();
+
+        StringBuilder sb_et=new StringBuilder(strEt);
+        sb_et.replace(10, 11, "T");
+        String etFin=sb_et.toString();
+
+        HashMap<Object,Object> res = searchNodeComboWithTime(label,stFin,etFin);
+        return res;
+    }
+
+    @PostMapping(value="/getBody")
+    public String getBody(@RequestBody PathData pathData){
+
+        return pathData.getPathNodes().get(0).getLabel();
+    }
+
 }
