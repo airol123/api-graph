@@ -3,8 +3,8 @@ package Model;
 import java.util.ArrayList;
 
 public class PathData {
-    private ArrayList<PathNode> pathNodes= new ArrayList<>();
-    private ArrayList<PathEdge> pathEdges=new ArrayList<>();
+    private ArrayList<PathNode> nodes= new ArrayList<>();
+    private ArrayList<PathEdge> edges=new ArrayList<>();
 
     //constructor
 
@@ -13,24 +13,24 @@ public class PathData {
     }
 
     public PathData(ArrayList<PathNode> pathNodes, ArrayList<PathEdge> pathEdges) {
-        this.pathNodes = pathNodes;
-        this.pathEdges = pathEdges;
+        this.nodes = pathNodes;
+        this.edges = pathEdges;
     }
     //getter&setter
 
     public ArrayList<PathNode> getPathNodes() {
-        return pathNodes;
+        return nodes;
     }
 
     public void setPathNodes(ArrayList<PathNode> pathNodes) {
-        this.pathNodes = pathNodes;
+        this.nodes = pathNodes;
     }
 
     public ArrayList<PathEdge> getPathEdges() {
-        return pathEdges;
+        return edges;
     }
 
     public void setPathEdges(ArrayList<PathEdge> pathEdges) {
-        this.pathEdges = pathEdges;
+        this.edges = pathEdges;
     }
 }

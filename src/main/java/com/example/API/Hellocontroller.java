@@ -92,7 +92,7 @@ public class Hellocontroller {
 
     @PostMapping(value="/getBody")
     public String getBody(@RequestBody PathData pathData){
-
+    	System.out.println(pathData.getPathEdges());
         return pathData.getPathNodes().get(0).getLabel();
     }
 
