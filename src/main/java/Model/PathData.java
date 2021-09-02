@@ -6,31 +6,33 @@ public class PathData {
     private ArrayList<PathNode> nodes= new ArrayList<>();
     private ArrayList<PathEdge> edges=new ArrayList<>();
 
-    //constructor
-
-
-    public PathData() {
+    public PathData(ArrayList<PathNode> nodes, ArrayList<PathEdge> edges) {
+        this.nodes = nodes;
+        this.edges = edges;
     }
 
-    public PathData(ArrayList<PathNode> pathNodes, ArrayList<PathEdge> pathEdges) {
-        this.nodes = pathNodes;
-        this.edges = pathEdges;
-    }
-    //getter&setter
-
-    public ArrayList<PathNode> getPathNodes() {
+    public ArrayList<PathNode> getNodes() {
         return nodes;
     }
 
-    public void setPathNodes(ArrayList<PathNode> pathNodes) {
-        this.nodes = pathNodes;
+    public void setNodes(ArrayList<PathNode> nodes) {
+        this.nodes = nodes;
     }
 
-    public ArrayList<PathEdge> getPathEdges() {
+    public ArrayList<PathEdge> getEdges() {
         return edges;
     }
 
-    public void setPathEdges(ArrayList<PathEdge> pathEdges) {
-        this.edges = pathEdges;
+    public void setEdges(ArrayList<PathEdge> edges) {
+        this.edges = edges;
+    }
+
+
+    @Override
+    public String toString() {
+        return "PathData{" +
+                "nodes=" + nodes +
+                ", edges=" + edges +
+                '}';
     }
 }
