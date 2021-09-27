@@ -359,7 +359,7 @@ public class MethodeNeo4J {
             sourceLabel = record.get("source").get(0).asString();
             targetLabel = record.get("target").get(0).asString();
         }
-        Result result = session.run("match(s:" + sourceLabel + ")-[r:" + captureName(label.toLowerCase()) + "]->(t:" + targetLabel + ") return s." + sourceLabel.toLowerCase() + "id as source, t." + targetLabel.toLowerCase() + "id as target skip " + (nbPage - 1) * nbDisplay + " limit " + nbId);
+        Result result = session.run("match(s:" + sourceLabel + ")-[r:" + captureName(label.toLowerCase()) + "]->(t:" + targetLabel + ") return distinct s." + sourceLabel.toLowerCase() + "id as source, t." + targetLabel.toLowerCase() + "id as target skip " + (nbPage - 1) * nbDisplay + " limit " + nbId);
 
         ArrayList<EdgeId> edgeIds = new ArrayList<>();
         while (result.hasNext()) {
