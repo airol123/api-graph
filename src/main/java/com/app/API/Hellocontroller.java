@@ -147,4 +147,13 @@ public class Hellocontroller {
         HashMap<Object,Object> cu = searchHistoryNode(id,label);
         return cu;
     }
+
+    //----------------------expand-----------------------------
+    @GetMapping("/combo/expand/{id}/{label}/{nameID}")
+    @CrossOrigin(origins = "http://localhost:3000")
+    public HashMap<Object,Object> expand(@PathVariable("id") String id,@PathVariable("label") String label, @PathVariable("nameID") String nameID){
+        HashMap<Object,Object> cu = expandGraph(id,label,nameID);
+        return cu;
+    }
+
 }
