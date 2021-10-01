@@ -1,13 +1,12 @@
 package DAO;
-
+// Methods used to obtain data
+// node==entity/state
+// edge==relationship
 import Model.*;
-import org.apache.commons.lang3.ObjectUtils;
-import org.checkerframework.checker.units.qual.C;
 import org.neo4j.driver.*;
 import org.neo4j.driver.Record;
-
 import java.util.*;
-import java.util.stream.Collectors;
+
 
 import static DAO.outils.captureName;
 
@@ -15,14 +14,15 @@ import static DAO.outils.captureName;
  * @author RRH
  */
 public class MethodeNeo4J {
-
+    //Number of data returned in query
     private static String nb = "20";
+    //Number of data to be showed in one page of list
     private static String nbId = "21";
-    private static int nbDisplay = 21;
 
 
-    //APIs for combo graph
-
+    //-----------------------------APIs for combo graph-----------------------------
+    //Used to search for a class of nodes (all the details)
+    //In our project, when the user clicks on a node in the data structure, the api is called up
     public static HashMap<Object, Object> searchNodeCombo(String label) {
         Driver driver = ConnexionNeo4J.connectDB();
         Session session = driver.session();
@@ -65,6 +65,7 @@ public class MethodeNeo4J {
             HashMap<Object, Object> style = new HashMap<>();
             String color;
             String stroke;
+            // the colors to be displayed for different node
             switch (label.toLowerCase()) {
                 case "user":
                     color = "#FF6666";
@@ -99,7 +100,8 @@ public class MethodeNeo4J {
         driver.close();
         return res;
     }
-
+    // Used to search for a class of edges
+    //In our project, when the user clicks on a node in the data structure, the api is called up
     public static HashMap<Object, Object> searchEdgeCombo(String label, String sourcelabel, String targetlabel) {
         Driver driver = ConnexionNeo4J.connectDB();
         Session session = driver.session();
@@ -267,7 +269,12 @@ public class MethodeNeo4J {
         return res;
     }
 
+
+    //-----------------------------APIs for list-----------------------------
     //APIs of nodes for list
+    //Used to search the id for all of a class of nodes (only id for avoid return too much data)
+    //In our project, when the user clicks on a node in the data structure, the api is called up
+    //The data will show in the list
     public static HashMap<Object, Object> searchNodeId(String label, int nbPage) {
         Driver driver = ConnexionNeo4J.connectDB();
         Session session = driver.session();
@@ -283,7 +290,7 @@ public class MethodeNeo4J {
 
         if (label.toLowerCase().equals("item")) {
             System.out.println("item");
-            result = session.run("match(n:Item) RETURN collect(DISTINCT n.itemid)[" + (nbPage - 1) * nbDisplay + ".." + Integer.parseInt(nbId) * nbPage + "]  as entityid ");
+            result = session.run("match(n:Item) RETURN collect(DISTINCT n.itemid)[" + (nbPage - 1) * Integer.parseInt(nbId) + ".." + Integer.parseInt(nbId) * nbPage + "]  as entityid ");
             while (result.hasNext()) {
                 Record record = result.next();
                 // return an entity
@@ -295,7 +302,7 @@ public class MethodeNeo4J {
 
             }
         } else {
-            result = session.run("match(n:" + captureName(label.toLowerCase()) + ") return id(n) as id, n." + label.toLowerCase() + "id as entityid skip " + (nbPage - 1) * nbDisplay + " limit " + nbId);
+            result = session.run("match(n:" + captureName(label.toLowerCase()) + ") return id(n) as id, n." + label.toLowerCase() + "id as entityid skip " + (nbPage - 1) * Integer.parseInt(nbId) + " limit " + nbId);
             String nodeId;
             while (result.hasNext()) {
                 Record record = result.next();
@@ -319,8 +326,10 @@ public class MethodeNeo4J {
 
         return res;
     }
-
-    //APIs of relations for list
+    //APIs of edges for list
+    //Used to search the id for all of a class of nodes (only id for avoid return too much data)
+    //In our project, when the user clicks on a node in the data structure, the api is called up
+    //The data will show in the list
     public static HashMap<Object, Object> searchEdgeId(String label, int nbPage) {
         Driver driver = ConnexionNeo4J.connectDB();
         Session session = driver.session();
@@ -359,7 +368,7 @@ public class MethodeNeo4J {
             sourceLabel = record.get("source").get(0).asString();
             targetLabel = record.get("target").get(0).asString();
         }
-        Result result = session.run("match(s:" + sourceLabel + ")-[r:" + captureName(label.toLowerCase()) + "]->(t:" + targetLabel + ") return distinct s." + sourceLabel.toLowerCase() + "id as source, t." + targetLabel.toLowerCase() + "id as target skip " + (nbPage - 1) * nbDisplay + " limit " + nbId);
+        Result result = session.run("match(s:" + sourceLabel + ")-[r:" + captureName(label.toLowerCase()) + "]->(t:" + targetLabel + ") return distinct s." + sourceLabel.toLowerCase() + "id as source, t." + targetLabel.toLowerCase() + "id as target skip " + (nbPage - 1) * Integer.parseInt(nbId) + " limit " + nbId);
 
         ArrayList<EdgeId> edgeIds = new ArrayList<>();
         while (result.hasNext()) {
@@ -389,7 +398,12 @@ public class MethodeNeo4J {
         return res;
     }
 
+
+
+    //-----------------------------APIs for combo graph by clicking on the list-----------------------------
+    //The user selects a row in the list and the api is called in order to display the corresponding node or edge
     //APIs of list for combo graph
+    //Search nodes by id
     public static HashMap<Object, Object> searchEntityById(String labelN, String id) {
         Driver driver = ConnexionNeo4J.connectDB();
         Session session = driver.session();
@@ -466,8 +480,8 @@ public class MethodeNeo4J {
         driver.close();
         return res;
     }
-
     //APIs of list for combo graph
+    //Search edges by id
     public static HashMap<Object, Object> searchEdgeById(String label, String sourceLabel, String targetLabel, String sourceId, String targetId) {
         Driver driver = ConnexionNeo4J.connectDB();
         Session session = driver.session();
@@ -623,8 +637,161 @@ public class MethodeNeo4J {
     }
 
 
-    //-----------------------------with time----------------------------------------------
+
+    //-----------------------------subgraph----------------------------------------------
+    //Select subgraph by correctly selected nodes and edges
+    public static HashMap<Object, Object> searchSubgraph(PathData pathData) {
+        Driver driver = ConnexionNeo4J.connectDB();
+        Session session = driver.session();
+
+        // Process received data
+        ArrayList<PathNode> pathNodes = new ArrayList<>();
+        ArrayList<PathEdge> pathEdges = new ArrayList<>();
+        pathEdges = pathData.getEdges();
+        pathNodes = pathData.getNodes();
+        String path = "p=";
+        boolean find = false;
+        int index = 0;
+// requete
+        while ((!find) & index < pathNodes.size()) {
+            System.out.println(pathEdges.get(0).getSource());
+            if (pathNodes.get(index).getId().equals(pathEdges.get(0).getSource())) {
+                System.out.println("trouve");
+                path = path + "(" + pathNodes.get(index).getLabelForQuery() + " :" + captureName(pathNodes.get(index).getLabelForQuery().replaceAll("\\d+", "").toLowerCase()) + ")";
+                find = true;
+            } else {
+                System.out.println(pathNodes.get(index).getId());
+                index++;
+            }
+        }
+        int r = 0;
+        for (PathEdge pe : pathEdges
+        ) {
+            r++;
+            path = path + "-[r" + r + ":" + captureName(pe.getLabel().toLowerCase()) + "]-(" + pathNodes.get(r).getLabelForQuery() + ":" + captureName(pathNodes.get(r).getLabelForQuery().replaceAll("\\d+", "")) + ")";
+
+        }
+
+        Result result = session.run("match " + path + " return nodes(p) as nodes,relationships(p) as relationships  limit " + nb);
+        System.out.println("match " + path + " return nodes(p) as nodes,relationships(p) as relations  limit " + nb);
+        ArrayList<Node> nodes = new ArrayList<>();
+        ArrayList<Edge> edges = new ArrayList<>();
+        ArrayList<Combo> combos = new ArrayList<>();
+        while (result.hasNext()) {
+            Record record = result.next();
+            int nodeSize = record.get("nodes").size();
+            int relationshipSize = record.get("relationships").size();
+
+            // node
+            for (int i = 0; i < nodeSize; i++) {
+                Node source = new Node();
+                Combo scombo = new Combo();
+                org.neo4j.driver.types.Node sourceNode = record.get("nodes").get(i).asNode();
+                HashMap<Object, Object> attribute = new HashMap<>();
+                attribute.putAll(sourceNode.asMap());
+                source.setAttributes(attribute);
+                source.setId(sourceNode.id() + "");
+                source.setInstanceid(attribute.get("instanceid") + "");
+                source.setStartvalidtime(attribute.get("startvalidtime").toString());
+                source.setEndvalidtime(attribute.get("endvalidtime") + "");
+                if (attribute.get("instanceid") == null) {
+                    source.setLabel(captureName(sourceNode.labels().iterator().next().toLowerCase()) + attribute.get(sourceNode.labels().iterator().next().toLowerCase() + "id").toString());
+                    //  source.setType("diamond");
+                } else {
+                    source.setComboId(sourceNode.labels().iterator().next() + attribute.get(sourceNode.labels().iterator().next().toLowerCase() + "id").toString());
+                    source.setLabel(source.getInstanceid());
+                    scombo.setId(source.getComboId());
+                    scombo.setLabel(source.getComboId());
+                    HashMap<Object, Object> styleSCombo = new HashMap<>();
+                    String colorSCombo = "#006699";
+                    styleSCombo.put("fill", colorSCombo);
+                    styleSCombo.put("stroke", colorSCombo);
+                    scombo.setStyle(styleSCombo);
+                    combos.add(scombo);
+                }
+                HashMap<Object, Object> styleSource = new HashMap<>();
+                String colorSource;
+                switch (sourceNode.labels().iterator().next().toLowerCase()) {
+                    case "user":
+                        colorSource = "#FF6666";
+                        break;
+                    case "item":
+                        colorSource = "#FFFFCC";
+                        break;
+                    default:
+                        colorSource = "#FFFF00";
+                }
+                styleSource.put("fill", colorSource);
+                styleSource.put("stroke", colorSource);
+                source.setStyle(styleSource);
+                nodes.add(source);
+
+            }
+
+            //edge
+            for (int i = 0; i < relationshipSize; i++) {
+                Edge edge = new Edge();
+                org.neo4j.driver.types.Relationship relationship = record.get("relationships").get(i).asRelationship();
+                edge.setId(relationship.id() + "");
+                edge.setSource(relationship.startNodeId() + "");
+                edge.setTarget(relationship.endNodeId() + "");
+                edge.setTypeEdge(relationship.type());
+                HashMap<Object, Object> rattributes = new HashMap<>();
+                rattributes.putAll(relationship.asMap());
+                edge.setAttributes(rattributes);
+
+                HashMap<Object, Object> styleEdge = new HashMap<>();
+                String colorEdge;
+                switch (relationship.type().toLowerCase()) {
+                    case "addtocart":
+                        colorEdge = "#FFEEE4";
+                        break;
+                    case "belongto":
+                        colorEdge = "#CFCFCF";
+                        break;
+                    case "subCategory":
+                        colorEdge = "#AAABD3";
+                        break;
+                    case "view":
+                        colorEdge = "#EEB4B4";
+                        break;
+                    default:
+                        colorEdge = "#CDBE70";
+                }
+                styleEdge.put("stroke", colorEdge);
+                edge.setStyle(styleEdge);
+                edges.add(edge);
+            }
+
+
+        }
+
+        LinkedHashSet<Node> nodeset = new LinkedHashSet<Node>(nodes);
+        ArrayList<Node> nodeNoDupli = new ArrayList<Node>(nodeset);
+        LinkedHashSet<Edge> edgeset = new LinkedHashSet<Edge>(edges);
+        ArrayList<Edge> edgeNoDupli = new ArrayList<Edge>(edgeset);
+        LinkedHashSet<Combo> set = new LinkedHashSet<Combo>(combos);
+        ArrayList<Combo> listWithoutDuplicateElements = new ArrayList<Combo>(set);
+
+
+        HashMap<Object, Object> res = new HashMap<>();
+
+
+        res.put("nodes", nodeNoDupli);
+        res.put("edges", edgeNoDupli);
+        res.put("combos", listWithoutDuplicateElements);
+        System.out.println("ok");
+        session.close();
+        driver.close();
+        return res;
+    }
+
+
+
+
+    //-----------------------------filter graph with time----------------------------------------------
     //http://localhost:8080/kaggle/time/user/time_get?st=2015-07-09 06:00:00 &et=2016-07-10 08:00:00
+    //unuseful
     public static HashMap<Object, Object> searchNodeComboWithTime(String label, String st, String et) {
         Driver driver = ConnexionNeo4J.connectDB();
         Session session = driver.session();
@@ -702,7 +869,6 @@ public class MethodeNeo4J {
         driver.close();
         return res;
     }
-
     public static HashMap<Object, Object> searchEdgeComboWithTime(String label, String sourcelabel, String targetlabel, String st, String et) {
         Driver driver = ConnexionNeo4J.connectDB();
         Session session = driver.session();
@@ -869,7 +1035,8 @@ public class MethodeNeo4J {
         driver.close();
         return res;
     }
-
+    //With a subgraph selected, use a time to limit the subgraph
+    //Evolution : The result is not combined with a graph of restrictions with attributes
     public static HashMap<Object, Object> searchSubgraphWithTime(PathData pathData, String st, String et) {
         Driver driver = ConnexionNeo4J.connectDB();
         Session session = driver.session();
@@ -1026,154 +1193,9 @@ public class MethodeNeo4J {
     }
 
 
-    //-----------------------------sub graph----------------------------------------------
-    public static HashMap<Object, Object> searchSubgraph(PathData pathData) {
-        Driver driver = ConnexionNeo4J.connectDB();
-        Session session = driver.session();
-
-        // Process received data
-        ArrayList<PathNode> pathNodes = new ArrayList<>();
-        ArrayList<PathEdge> pathEdges = new ArrayList<>();
-        pathEdges = pathData.getEdges();
-        pathNodes = pathData.getNodes();
-        String path = "p=";
-        boolean find = false;
-        int index = 0;
-// requete
-        while ((!find) & index < pathNodes.size()) {
-            System.out.println(pathEdges.get(0).getSource());
-            if (pathNodes.get(index).getId().equals(pathEdges.get(0).getSource())) {
-                System.out.println("trouve");
-                path = path + "(" + pathNodes.get(index).getLabelForQuery() + " :" + captureName(pathNodes.get(index).getLabelForQuery().replaceAll("\\d+", "").toLowerCase()) + ")";
-                find = true;
-            } else {
-                System.out.println(pathNodes.get(index).getId());
-                index++;
-            }
-        }
-        int r = 0;
-        for (PathEdge pe : pathEdges
-        ) {
-            r++;
-            path = path + "-[r" + r + ":" + captureName(pe.getLabel().toLowerCase()) + "]-(" + pathNodes.get(r).getLabelForQuery() + ":" + captureName(pathNodes.get(r).getLabelForQuery().replaceAll("\\d+", "")) + ")";
-
-        }
-
-        Result result = session.run("match " + path + " return nodes(p) as nodes,relationships(p) as relationships  limit " + nb);
-        System.out.println("match " + path + " return nodes(p) as nodes,relationships(p) as relations  limit " + nb);
-        ArrayList<Node> nodes = new ArrayList<>();
-        ArrayList<Edge> edges = new ArrayList<>();
-        ArrayList<Combo> combos = new ArrayList<>();
-        while (result.hasNext()) {
-            Record record = result.next();
-            int nodeSize = record.get("nodes").size();
-            int relationshipSize = record.get("relationships").size();
-
-            // node
-            for (int i = 0; i < nodeSize; i++) {
-                Node source = new Node();
-                Combo scombo = new Combo();
-                org.neo4j.driver.types.Node sourceNode = record.get("nodes").get(i).asNode();
-                HashMap<Object, Object> attribute = new HashMap<>();
-                attribute.putAll(sourceNode.asMap());
-                source.setAttributes(attribute);
-                source.setId(sourceNode.id() + "");
-                source.setInstanceid(attribute.get("instanceid") + "");
-                source.setStartvalidtime(attribute.get("startvalidtime").toString());
-                source.setEndvalidtime(attribute.get("endvalidtime") + "");
-                if (attribute.get("instanceid") == null) {
-                    source.setLabel(captureName(sourceNode.labels().iterator().next().toLowerCase()) + attribute.get(sourceNode.labels().iterator().next().toLowerCase() + "id").toString());
-                    //  source.setType("diamond");
-                } else {
-                    source.setComboId(sourceNode.labels().iterator().next() + attribute.get(sourceNode.labels().iterator().next().toLowerCase() + "id").toString());
-                    source.setLabel(source.getInstanceid());
-                    scombo.setId(source.getComboId());
-                    scombo.setLabel(source.getComboId());
-                    HashMap<Object, Object> styleSCombo = new HashMap<>();
-                    String colorSCombo = "#006699";
-                    styleSCombo.put("fill", colorSCombo);
-                    styleSCombo.put("stroke", colorSCombo);
-                    scombo.setStyle(styleSCombo);
-                    combos.add(scombo);
-                }
-                HashMap<Object, Object> styleSource = new HashMap<>();
-                String colorSource;
-                switch (sourceNode.labels().iterator().next().toLowerCase()) {
-                    case "user":
-                        colorSource = "#FF6666";
-                        break;
-                    case "item":
-                        colorSource = "#FFFFCC";
-                        break;
-                    default:
-                        colorSource = "#FFFF00";
-                }
-                styleSource.put("fill", colorSource);
-                styleSource.put("stroke", colorSource);
-                source.setStyle(styleSource);
-                nodes.add(source);
-
-            }
-
-            //edge
-            for (int i = 0; i < relationshipSize; i++) {
-                Edge edge = new Edge();
-                org.neo4j.driver.types.Relationship relationship = record.get("relationships").get(i).asRelationship();
-                edge.setId(relationship.id() + "");
-                edge.setSource(relationship.startNodeId() + "");
-                edge.setTarget(relationship.endNodeId() + "");
-                edge.setTypeEdge(relationship.type());
-                HashMap<Object, Object> rattributes = new HashMap<>();
-                rattributes.putAll(relationship.asMap());
-                edge.setAttributes(rattributes);
-
-                HashMap<Object, Object> styleEdge = new HashMap<>();
-                String colorEdge;
-                switch (relationship.type().toLowerCase()) {
-                    case "addtocart":
-                        colorEdge = "#FFEEE4";
-                        break;
-                    case "belongto":
-                        colorEdge = "#CFCFCF";
-                        break;
-                    case "subCategory":
-                        colorEdge = "#AAABD3";
-                        break;
-                    case "view":
-                        colorEdge = "#EEB4B4";
-                        break;
-                    default:
-                        colorEdge = "#CDBE70";
-                }
-                styleEdge.put("stroke", colorEdge);
-                edge.setStyle(styleEdge);
-                edges.add(edge);
-            }
 
 
-        }
-
-        LinkedHashSet<Node> nodeset = new LinkedHashSet<Node>(nodes);
-        ArrayList<Node> nodeNoDupli = new ArrayList<Node>(nodeset);
-        LinkedHashSet<Edge> edgeset = new LinkedHashSet<Edge>(edges);
-        ArrayList<Edge> edgeNoDupli = new ArrayList<Edge>(edgeset);
-        LinkedHashSet<Combo> set = new LinkedHashSet<Combo>(combos);
-        ArrayList<Combo> listWithoutDuplicateElements = new ArrayList<Combo>(set);
-
-
-        HashMap<Object, Object> res = new HashMap<>();
-
-
-        res.put("nodes", nodeNoDupli);
-        res.put("edges", edgeNoDupli);
-        res.put("combos", listWithoutDuplicateElements);
-        System.out.println("ok");
-        session.close();
-        driver.close();
-        return res;
-    }
-
-    //-----------------------------filter sub graph----------------------------------------------
+    //-----------------------------filter subgraph with attributes----------------------------------------------
     public static HashMap<Object, Object> filterSubgraph(FiltreData filtreData) {
         Driver driver = ConnexionNeo4J.connectDB();
         Session session = driver.session();
@@ -1339,7 +1361,9 @@ public class MethodeNeo4J {
     }
 
 
+
     //-----------------------------schema-------------------------------------------------
+    //the structure of the data
     public static HashMap<Object, Object> getSchema() {
         Driver driver = ConnexionNeo4J.connectDB();
         Session session = driver.session();
@@ -1375,8 +1399,11 @@ public class MethodeNeo4J {
         return res;
     }
 
-    //-----------------------------history-------------------------------------------------
 
+
+
+    //-----------------------------history-------------------------------------------------
+    //method to search all of the states of a node and their types of change
     public static HashMap<Object, Object> searchHistoryNode(String id, String label) {
         Driver driver = ConnexionNeo4J.connectDB();
         Session session = driver.session();
@@ -1577,10 +1604,243 @@ public class MethodeNeo4J {
         driver.close();
         return res;
     }
+    //n'est pas encore fini
+    public static HashMap<Object, Object> searchHistoryEdge(String id, String label)  {
+        Driver driver = ConnexionNeo4J.connectDB();
+        Session session = driver.session();
+        HashMap<Object, Object> res = new HashMap<>();
+        Boolean evolution = false;
+        //obtain all of instances of a edge
+        // obtain the sourceid and the targetid
+        int sourceid=0;
+        int targetid=0;
+        Result searchID = session.run("MATCH ()-[r:"+captureName(label.toLowerCase())+"]-() WHERE id(r)="+Integer.parseInt(id)+" return distinct id(startNode(r)) as sourceid,id(endNode(r)) as targetid");
+        while (searchID.hasNext()) {
+            Record recordID = searchID.next();
+            sourceid=recordID.get("sourceid").asInt();
+            targetid=recordID.get("targetid").asInt();
+        }
+        Result result = session.run("MATCH p= (s)-[r:View]-(t) where id(s)="+sourceid+" and id(t)="+targetid+" return  relationships(p) as relationships" );
+
+        //ArrayList<NodeHistory> nodeHistories = new ArrayList<>();
+        ArrayList<Change> changes = new ArrayList<>();
+        ArrayList<Edge> edges = new ArrayList<>();
+        while (result.hasNext()) {
+            Record record = result.next();
+            int relationshipSize = record.get("relationships").size();
+            //edge
+            for (int i = 0; i < relationshipSize; i++) {
+                Edge edge = new Edge();
+                org.neo4j.driver.types.Relationship relationship = record.get("relationships").get(i).asRelationship();
+                edge.setId(relationship.id() + "");
+                edge.setSource(relationship.startNodeId() + "");
+                edge.setTarget(relationship.endNodeId() + "");
+                edge.setTypeEdge(relationship.type());
+                HashMap<Object, Object> rattributes = new HashMap<>();
+                rattributes.putAll(relationship.asMap());
+                edge.setAttributes(rattributes);
+
+                HashMap<Object, Object> styleEdge = new HashMap<>();
+                String colorEdge;
+                switch (relationship.type().toLowerCase()) {
+                    case "addtocart":
+                        colorEdge = "#FFEEE4";
+                        break;
+                    case "belongto":
+                        colorEdge = "#CFCFCF";
+                        break;
+                    case "subCategory":
+                        colorEdge = "#AAABD3";
+                        break;
+                    case "view":
+                        colorEdge = "#EEB4B4";
+                        break;
+                    default:
+                        colorEdge = "#CDBE70";
+                }
+                styleEdge.put("stroke", colorEdge);
+                edge.setStyle(styleEdge);
+                edges.add(edge);
+            }
+
+
+        }
+
+//// the first state of edge
+//        EdgeHistory e1 = new EdgeHistory();
+//        // sort the nodes by time
+//        // données deja bien tiées
+//        String fill1;
+//        switch (label.toLowerCase()) {
+//            case "user":
+//                fill1 = "#FF6666";
+//                break;
+//            case "item":
+//                fill1 = "#FFFFCC";
+//                break;
+//            default:
+//                fill1 = "#FFFF00";
+//        }
+//
+//        e1.setId(nodes.get(0).getId());
+//        e1.setLabel(nodes.get(0).getLabel());
+//        e1.setSize("80");
+//        e1.setX("0");
+//        n1.setY("5");
+//        HashMap<Object, Object> style1 = new HashMap<>();
+//        style1.put("fill", fill1);
+//        // style.put("stroke", stroke);
+//        n1.setStyle(style1);
+//        nodeHistories.add(n1);
+//        Change c1 =new Change();
+//        //c1.setAppear(null);
+//        //c1.setDisappear(null);
+//        HashMap<Object,Object> validtime1 =new HashMap<>();
+//        validtime1.put("startvalidtime",nodes.get(0).getStartvalidtime());
+//        validtime1.put("endvalidtime",nodes.get(0).getEndvalidtime());
+//        c1.setValidtime(validtime1);
+//        //c1.setValuechange(null);
+//        changes.add(c1);
+//        //compare the nodes and generate nodeHistory
+//        for (int i = 0; i < nodes.size() - 1; i++) {
+//            int nbNew = 0;
+//            int nbDisappear = 0;
+//            int nbValue = 0;
+//            String typeChange = "";
+//            String color1 = "";
+//            String color2 = "";
+//            String fill = "#FFFFFF";
+//
+//
+//            //extract all of the key and value
+//            //i
+//            Set<Object> keySetP = nodes.get(i).getAttributes().keySet();
+//            ArrayList<String> keysP = new ArrayList<>(Arrays.asList(keySetP.toArray(new String[0])));
+//            ArrayList<String> keysP1 = new ArrayList<>();
+//            keysP1.addAll(keysP);
+//
+//            //i+1
+//            Set<Object> keySetN = nodes.get(i + 1).getAttributes().keySet();
+//            ArrayList<String> keysN = new ArrayList<>(Arrays.asList(keySetN.toArray(new String[0])));
+//            ArrayList<String> keysN1 = new ArrayList<>();
+//            keysN1.addAll(keysN);
+//
+//            System.out.println(keysP);
+//            System.out.println(keysN);
+//
+//
+//            // new
+//            // remove all elements of keysP list
+//            System.out.println("new");
+//            keysN1.removeAll(keysP1);
+//            System.out.println(keysN1);
+//            nbNew = keysN1.size();
+//            //disappear
+//            // remove all elements of keysN list
+//            System.out.println("disappear");
+//            keysP1.removeAll(keysN);
+//            System.out.println(keysP1);
+//            nbDisappear = keysP1.size();
+//            //value
+//            HashMap<Object,Object> valuechange=new HashMap<>();
+//            for (Map.Entry<Object, Object> entry1 : nodes.get(i).getAttributes().entrySet()) {
+//                Object m1value = entry1.getValue() == null ? "" : entry1.getValue();
+//                Object m2value = nodes.get(i + 1).getAttributes().get(entry1.getKey()) == null ? "" : nodes.get(i + 1).getAttributes().get(entry1.getKey());
+//
+//                if (!m1value.equals(m2value)) {//若两个map中相同key对应的value不相等
+//                    if (entry1.getKey().equals("instanceid") == false && entry1.getKey().equals("endvalidtime") == false && entry1.getKey().equals("startvalidtime") == false) {
+//                        System.out.println(i + "+" + (i + 1));
+//                        System.out.println(entry1.getKey() + ":" + m1value.toString() + "+" + m2value.toString());
+//                        nbValue++;
+//                        // valuechange
+//                        valuechange.put("before:"+entry1.getKey() ,m1value);
+//                        valuechange.put("actuel:"+entry1.getKey() ,m2value);
+//                    }
+//                }
+//            }
+//            // instantier change pour cette instance
+//            Change change =new Change();
+//            //appear
+//            change.setAppear(keysN1);
+//            //disappear
+//            change.setDisappear(keysP1);
+//            //validtime
+//            HashMap<Object,Object> validtime =new HashMap<>();
+//            validtime.put("startvalidtime",nodes.get(i+1).getStartvalidtime());
+//            validtime.put("endvalidtime",nodes.get(i+1).getEndvalidtime());
+//            change.setValidtime(validtime);
+//            //valuechange
+//            change.setValuechange(valuechange);
+//            // add into changes by order
+//            changes.add(change);
+//
+//            //比完了。总结
+//            //如果3个nb都是大于0  type = pie
+//            if (nbDisappear > 0 && nbValue > 0 && nbNew > 0) {
+//                typeChange = "pie-node";
+//            }
+//            //如果有2个  type= demi   根据nb的类型  设置color1 2
+//            if (nbNew > 0 && nbDisappear > 0 && nbValue == 0) {
+//                typeChange = "demi-node";
+//                color1 = "#7FFF00";
+//                color2 = "#FF0000";
+//
+//            } else if (nbNew > 0 && nbDisappear == 0 && nbValue > 0) {
+//                typeChange = "demi-node";
+//                color1 = "#7FFF00";
+//                color2 = "#FFB90F";
+//
+//            } else if (nbNew == 0 && nbDisappear > 0 && nbValue > 0) {
+//                typeChange = "demi-node";
+//                color1 = "#FFB90F";
+//                color2 = "#FF0000";
+//            }
+//
+//            //如果有1个或者没有 type为空  根据nb 设置style中fill颜色
+//            if (nbNew > 0 && nbDisappear == 0 && nbValue == 0) {
+//                fill = "#7FFF00";
+//
+//            } else if (nbNew == 0 && nbDisappear == 0 && nbValue > 0) {
+//                fill = "#FFB90F";
+//
+//            } else if (nbNew == 0 && nbDisappear > 0 && nbValue == 0) {
+//                fill = "#FF0000";
+//            }
+//            NodeHistory nodeHistory = new NodeHistory();
+//            nodeHistory.setId(nodes.get(i + 1).getId());
+//            nodeHistory.setLabel(nodes.get(i + 1).getLabel());
+//            nodeHistory.setSize("80");
+//            nodeHistory.setColor1(color1);
+//            nodeHistory.setColor2(color2);
+//            nodeHistory.setDegree("360");
+//            nodeHistory.setType(typeChange);
+//            HashMap<Object, Object> style = new HashMap<>();
+//            style.put("fill", fill);
+//            // style.put("stroke", stroke);
+//            System.out.println("style" + style);
+//            nodeHistory.setStyle(style);
+//            nodeHistory.setX((90 + 90 * i) + "");
+//            nodeHistory.setY("5");
+//            nodeHistories.add(nodeHistory);
+//        }
+//
+//        HashMap<Object,Object> resNodes=new HashMap<>();
+//        resNodes.put("nodes", nodeHistories);
+
+//        res.put("nodes", resNodes);
+        res.put("changes", changes);
+
+        System.out.println("ok");
+        session.close();
+        driver.close();
+        return res;
+    }
+
+
 
 
     //-----------------------------expand-------------------------------------------------
-
+    //Extending a node's other direct relationships
     public static HashMap<Object, Object> expandGraph(String id, String label,String nameID) {
         Driver driver = ConnexionNeo4J.connectDB();
         Session session = driver.session();
@@ -1697,12 +1957,14 @@ public class MethodeNeo4J {
         driver.close();
         return res;
     }
+
+
+
+
+
     public static void main(String[] args) throws Exception {
         // searchNodeComboWithTime("user", "2015-07-09 06:00:00", "2016-07-10 08:00:00");
         searchHistoryNode("1", "item");
         System.out.println("----------------End--------------");
-
     }
-
-
 }
